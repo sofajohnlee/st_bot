@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>등기정보광장 AI 안내봇</title>
+  <meta name="description" content="대한민국 법원 등기정보광장 안내봇">
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f7fb;color:#172033}.app{max-width:900px;margin:0 auto;padding:32px 18px}.hero{background:#163b68;color:white;border-radius:24px;padding:32px;margin-bottom:18px}.badge{font-size:14px;opacity:.9}.hero h1{font-size:36px;line-height:1.15;margin:14px 0 10px}.hero h1 span{font-weight:800}.hero p{margin:0;opacity:.9}.chat{background:white;border-radius:24px;padding:20px;box-shadow:0 8px 30px rgba(20,40,70,.08)}.messages{min-height:330px;max-height:520px;overflow:auto;padding:8px}.message{display:flex;gap:10px;margin:14px 0}.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#e7eef7;font-size:12px;font-weight:700;flex:none}.bubble{background:#eef4fa;border-radius:16px;padding:13px 15px;line-height:1.55;max-width:80%}.suggestions{display:flex;gap:8px;flex-wrap:wrap;padding:14px 8px}.suggestions button{border:1px solid #d5dfeb;background:white;border-radius:999px;padding:9px 13px;cursor:pointer}.input-row{display:flex;gap:8px;border-top:1px solid #e7ebf0;padding-top:14px}.input-row input{flex:1;border:1px solid #cbd5e1;border-radius:12px;padding:13px;font-size:16px}.input-row button{border:0;border-radius:12px;padding:0 20px;background:#163b68;color:white;font-weight:700;cursor:pointer}footer{text-align:center;padding:18px;color:#667085;font-size:14px}footer a{color:#163b68;text-decoration:none;font-weight:700}@media(max-width:600px){.hero h1{font-size:28px}.bubble{max-width:88%}}
+  </style>
+</head>
+<body>
+<main class="app">
+  <header class="hero">
+    <div class="badge">🏛 대한민국 법원 등기정보광장</div>
+    <h1>등기정보광장<br><span>AI 안내봇</span></h1>
+    <p>등기현황·통계·데이터 활용·Open API 정보를 쉽게 찾아보세요.</p>
+  </header>
+  <section class="chat" aria-label="안내봇">
+    <div id="messages" class="messages">
+      <div class="message bot"><div class="avatar">AI</div><div class="bubble">안녕하세요. 등기정보광장 안내봇입니다.<br><br>궁금한 내용을 질문해 주세요. 현재는 안내 화면을 먼저 제공하며, 다음 단계에서 등기정보광장 공개자료/API 검색 기능을 연결합니다.</div></div>
+    </div>
+    <div class="suggestions">
+      <button data-q="등기정보광장이 무엇인가요?">등기정보광장이 무엇인가요?</button>
+      <button data-q="Open API는 어떻게 이용하나요?">Open API 이용방법</button>
+      <button data-q="최근 등기현황은 어떻게 확인하나요?">최근 등기현황</button>
+      <button data-q="등기정보광장에서는 어떤 정보를 볼 수 있나요?">제공 정보 안내</button>
+    </div>
+    <form id="questionForm" class="input-row">
+      <input id="question" autocomplete="off" placeholder="질문을 입력하세요" aria-label="질문">
+      <button type="submit">검색</button>
+    </form>
+  </section>
+  <footer><a href="https://data.iros.go.kr/" target="_blank" rel="noopener">등기정보광장 바로가기 ↗</a> · 공개자료 기반 안내</footer>
+</main>
+<script>
+const messages=document.getElementById('messages');
+const input=document.getElementById('question');
+function addMessage(text,who='bot'){const row=document.createElement('div');row.className='message '+who;row.innerHTML='<div class="avatar">'+(who==='bot'?'AI':'YOU')+'</div><div class="bubble"></div>';row.querySelector('.bubble').textContent=text;messages.appendChild(row);messages.scrollTop=messages.scrollHeight;}
+function answer(q){const t=q.toLowerCase();if(t.includes('open api'))return 'Open API 관련 질문입니다. 다음 단계에서 등기정보광장의 실제 공개 API를 조회하여 이용 방법과 제공 데이터를 안내하도록 연결하겠습니다.';if(t.includes('등기정보광장'))return '등기정보광장은 등기 관련 현황과 통계 등 공개정보를 제공하는 대한민국 법원의 서비스입니다. 구체적인 수치나 최신 현황은 실제 공개자료를 조회해 확인하는 방식으로 구축할 예정입니다.';return '질문을 확인했습니다. 다음 단계에서 등기정보광장 공개자료/API 검색 기능과 연결하여 실제 데이터와 출처를 함께 안내하도록 구현하겠습니다.';}
+document.getElementById('questionForm').addEventListener('submit',e=>{e.preventDefault();const q=input.value.trim();if(!q)return;addMessage(q,'user');input.value='';setTimeout(()=>addMessage(answer(q)),250);});document.querySelectorAll('.suggestions button').forEach(b=>b.addEventListener('click',()=>{input.value=b.dataset.q;document.getElementById('questionForm').requestSubmit();}));
+</script>
+</body>
+</html>
