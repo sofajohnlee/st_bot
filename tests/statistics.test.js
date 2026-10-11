@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {statistics,parsePeriod,parseRegions,resolveRegions,selectMetric,validateRows} from '../statistics.js';
+import {statistics,officialRequest,parsePeriod,parseRegions,resolveRegions,selectMetric,validateRows} from '../statistics.js';
 const now=new Date('2026-10-12T00:00:00Z');
 const xml='<Map><Province code="900" label="서울특별시"><Country code="901" label="강남구"/></Province><Province code="800" label="부산광역시"/><Province code="200" label="경기도"><Country code="212" label="성남시"><Gu code="2123" label="분당구"/></Country></Province></Map>';
 function fixture(rows=[{crmm:'2026-09',m1_work1:10,m2_work1:20,m3_work1:30}]){const calls=[];return {calls,request:async(path,params)=>{calls.push({path,params});if(path.includes('getLastMonth'))return {ldate:{lastmonth:'2026-09'}};if(path.includes('xml'))return xml;return {dataList:rows};}};}
@@ -55,4 +55,12 @@ test('연계 장애는 실패로 표시하고 수치 생성 금지',async()=>{
 test('공식 XML의 축약 시도명을 정규화하고 강남구를 남구로 오인하지 않음',()=>{
  const actual='<Map><Province code="900" label="서울"><Country code="901" label="강남구"/></Province><Province code="800" label="부산"><Country code="801" label="남구"/></Province><Province code="1000" label="울산"><Country code="1001" label="남구"/></Province></Map>';
  const r=resolveRegions('서울 강남구 매매',parseRegions(actual));assert.equal(r.length,1);assert.equal(r[0].code,'901');assert.equal(r[0].path[0].name,'서울특별시');
+});
+
+test('Workers에서 지원하는 redirect manual을 사용하고 리다이렉트를 성공 처리하지 않음',async()=>{
+ const original=globalThis.fetch;
+ try {
+  globalThis.fetch=async(url,options)=>{assert.equal(options.redirect,'manual');return new Response('',{status:302});};
+  await assert.rejects(()=>officialRequest('/cr/dv/selectRgsCrDvGraph1.do',{rdata_seq:'4'}),/upstream_http_302/);
+ }finally{globalThis.fetch=original;}
 });

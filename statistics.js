@@ -112,7 +112,7 @@ export async function officialRequest(path,params={},text=false) {
  if(![GRAPH,'/cr/dv/getLastMonth.do',MAP].includes(path))throw new Error('Disallowed statistics endpoint');
  const cacheUrl=BASE+path+(text?'':('?'+new URLSearchParams(params)));
  const cache=globalThis.caches?.default;const hit=await cache?.match(cacheUrl);if(hit)return text?hit.text():hit.json();
- const r=await fetch(BASE+path,text?{signal:AbortSignal.timeout(10000)}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','X-Requested-With':'XMLHttpRequest','Referer':BASE+'/cr/dv/openDataInfograp.do?ris_menu_seq=0000000016'},body:new URLSearchParams(params),signal:AbortSignal.timeout(12000),redirect:'error'});
+ const r=await fetch(BASE+path,text?{signal:AbortSignal.timeout(10000)}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','X-Requested-With':'XMLHttpRequest','Referer':BASE+'/cr/dv/openDataInfograp.do?ris_menu_seq=0000000016'},body:new URLSearchParams(params),signal:AbortSignal.timeout(12000),redirect:'manual'});
  if(!r.ok)throw new Error('upstream_http_'+r.status);
  const raw=await r.text();if(raw.length>1000000)throw new Error('Response too large');
  let value;try{value=text?raw:JSON.parse(raw);}catch{throw new Error('upstream_invalid_json_'+(path.includes('getLastMonth')?'latest':'graph'));}
