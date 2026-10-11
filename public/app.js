@@ -31,6 +31,7 @@ function addMessage(text, who = 'bot', meta = '', sourceUrl = '') {
   }
   messages.appendChild(row);
   messages.scrollTop = messages.scrollHeight;
+  return bubble;
 }
 
 async function askBackend(q) {
@@ -62,11 +63,21 @@ async function handleQuestion(q) {
     }
     const mode = result.queryType === '공식 통계 조회' ? '공식 통계 조회 · 서버 수치 검증' : result.llmUsed ? 'Llama 3.3 70B · AI 답변' : '원문 검색 · AI 답변 미사용';
     const meta = mode + (result.searchedAt ? ` · 조회 시각: ${new Date(result.searchedAt).toLocaleString('ko-KR')}` : '');
-    addMessage(result.answer, 'bot', meta, result.source);
-    for (const source of result.sources || []) {
+    const bubble = addMessage(result.answer, 'bot', meta, (result.sources || []).length ? '' : result.source);
+    const sourceList = document.createElement('div');
+    sourceList.className = 'meta source-list';
+    sourceList.setAttribute('aria-label', '답변 출처');
+    for (const [index, source] of (result.sources || []).entries()) {
       try { if (new URL(source.url).origin !== 'https://data.iros.go.kr') continue; } catch { continue; }
-      addMessage(source.excerpt, 'bot', `[${(result.sources || []).indexOf(source) + 1}] ${result.queryType === '공식 통계 조회' ? '통계 조회 근거' : '원문 발췌'} · ${source.title}`, source.url);
+      const link = document.createElement('a');
+      link.href = source.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'source-link';
+      link.textContent = `[${index + 1}] ${source.title || '공식 자료'} ↗`;
+      sourceList.appendChild(link);
     }
+    if (sourceList.children.length) bubble.appendChild(sourceList);
   } catch {
     loading.remove();
     addMessage('검색 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'bot', '조회 실패', 'https://data.iros.go.kr/');
