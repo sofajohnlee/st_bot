@@ -1,48 +1,49 @@
-const IROS_BASE = 'https://data.iros.go.kr';
-const MENU_SEQ = '0000000016';
-
-// Data-visualization categories exposed by the Registry Information Plaza.
-const DATASETS = [
-  {seq:1,name:'부동산등기 기록 현황',words:['등기기록','기록 현황']},
-  {seq:2,name:'부동산등기 신청 현황',words:['등기 신청','신청 현황']},
-  {seq:3,name:'소유권이전등기 신청 현황',words:['소유권이전','소유권 이전']},
-  {seq:4,name:'매매에 의한 소유권이전등기 신청 현황',words:['매매']},
-  {seq:5,name:'(근)저당권등기 신청 현황',words:['근저당','저당권','저당']},
-  {seq:6,name:'경매/공매등기 신청 현황',words:['경매','공매']},
-  {seq:7,name:'상법법인등기 신청 현황',words:['법인등기 신청','법인 신청']},
-  {seq:8,name:'상법법인등기 기록 현황',words:['법인등기 기록','법인 기록']},
-  {seq:9,name:'특별조치법에 의한 등기신청 현황',words:['특별조치법']},
-  {seq:10,name:'부기등기 신청 및 등기기록 현황',words:['부기등기']}
-];
-
-export default { async fetch(request) {
-  const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json; charset=utf-8'};
-  if(request.method==='OPTIONS') return new Response('',{headers});
-  if(request.method!=='POST') return json({error:'POST only'},405,headers);
-  const url=new URL(request.url);
-  if(url.pathname!=='/api/ask') return json({error:'Not found'},404,headers);
-  let body; try{body=await request.json()}catch{return json({error:'Invalid JSON'},400,headers)}
-  const q=String(body.question||'').trim(); if(!q)return json({error:'question is required'},400,headers);
-
-  if(/(open\s*api|오픈\s*api|api|데이터\s*다운로드|공개데이터)/i.test(q)) return json({
-    answer:'등기정보광장 Open API는 회원가입·로그인 후 Open API 신청, 승인, 인증키 발급 등의 절차를 거쳐 이용합니다. 인증키는 브라우저에 노출하지 않고 서버에서 관리해야 합니다.',
-    source:`${IROS_BASE}/rp/oa/openOapiIntro.do`},200,headers);
-
-  if(isStatistics(q)){
-    const d=selectDataset(q), p=period(q), result=await fetchDataset(d,p);
-    if(result)return json(result,200,headers);
-    return json({answer:`${d.name} 질문으로 분류했습니다. 공식 데이터 페이지를 조회했지만 상세 수치를 안정적으로 추출하지 못했습니다. 숫자를 임의로 생성하지 않습니다.`,source:datasetUrl(d,p),queryType:d.name,dataDate:p.label},200,headers);
-  }
-  return json({answer:'등기정보광장은 부동산등기·법인등기의 기록 및 신청 현황, 데이터 시각화, 공개데이터, Open API 등을 제공합니다. 통계 질문은 해당 공식 데이터셋을 조회하도록 구성되어 있습니다.',source:IROS_BASE},200,headers);
+const BASE = 'https://data.iros.go.kr';
+const SEEDS = [BASE+'/', BASE+'/iu/no/openNotic.do?ris_menu_seq=0000000034', BASE+'/iu/rr/openMatrm.do?ris_menu_seq=0000000036', BASE+'/cr/rs/openRgsCs.do?ris_menu_seq=0000000022'];
+export function officialUrl(value) { try { const u=new URL(value,BASE); return u.origin===BASE && !/logout|login|download|delete|insert|update/i.test(u.pathname) ? u.href : null; } catch { return null; } }
+export function clean(html) {
+ return html.replace(/<(script|style|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/\s+/g,' ').trim();
+}
+export function tokens(q) { const words=q.toLowerCase().match(/[가-힣a-z0-9]+/g)||[]; return [...new Set(words.flatMap(w=>w.length>2?[w,...Array.from({length:w.length-1},(_,i)=>w.slice(i,i+2))]:[w]))].filter(w=>w.length>1); }
+export function score(text,terms) { return terms.reduce((n,t)=>n+(text.toLowerCase().includes(t)?t.length:0),0); }
+async function page(url) {
+ const cached=await caches.default.match(url); if(cached)return cached.json();
+ const r=await fetch(url,{signal:AbortSignal.timeout(8000),redirect:'manual'});
+ if(!r.ok || !/text\/html/i.test(r.headers.get('content-type')||''))throw new Error('unavailable');
+ const bytes=await r.arrayBuffer(); if(bytes.byteLength>2000000)throw new Error('too large');
+ let html=new TextDecoder().decode(bytes);
+ const charset=(r.headers.get('content-type')||'').match(/charset=([^; ]+)/i)?.[1] || html.match(/charset\s*=\s*["']?([\w-]+)/i)?.[1];
+ if(charset && /euc|ks_c|949/i.test(charset))html=new TextDecoder('euc-kr').decode(bytes);
+ if(/access denied|request rejected|captcha/i.test(html))throw new Error('blocked');
+ const main=html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] || html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i)?.[1] || html;
+ const text=clean(main); if(text.length<200 || (text.match(/�/g)||[]).length>20)throw new Error('unreadable');
+ const title=clean(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||'등기정보광장');
+ const links=[...html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)].map(m=>({url:officialUrl(m[1]),title:clean(m[2])})).filter(l=>l.url&&l.title&&l.url!==url);
+ const result={url,title,text:text.slice(0,50000),links,checkedAt:new Date().toISOString()};
+ await caches.default.put(url,new Response(JSON.stringify(result),{headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=900'}}));return result;
+}
+export async function search(q,load=page) {
+ const terms=tokens(q); const initial=await Promise.allSettled(SEEDS.map(load));
+ const pages=initial.filter(r=>r.status==='fulfilled').map(r=>r.value);
+ const visited=new Set(SEEDS); const candidates=pages.flatMap(p=>p.links).filter(l=>!visited.has(l.url)&&score(l.title,terms)>0).sort((a,b)=>score(b.title,terms)-score(a.title,terms));
+ const extra=[];for(const l of candidates){if(!visited.has(l.url)){visited.add(l.url);extra.push(l.url);}if(extra.length===4)break;}
+ const more=await Promise.allSettled(extra.map(load));pages.push(...more.filter(r=>r.status==='fulfilled').map(r=>r.value));
+ const hits=pages.flatMap(p=>{const chunks=Array.from({length:Math.ceil(p.text.length/550)},(_,i)=>p.text.slice(i*550,i*550+750));return chunks.map(text=>({...p,text,rank:score(text,terms)}));}).filter(p=>p.rank>0).sort((a,b)=>b.rank-a.rank);
+ const sources=[];for(const h of hits){if(!sources.some(s=>s.url===h.url))sources.push({title:h.title,url:h.url,excerpt:h.text,checkedAt:h.checkedAt});if(sources.length===3)break;}
+ const numerical=/(몇|건수|통계|추이|비율|증가|감소|지역별|월별|연도별|순위|비교)/.test(q);
+ return {answer:sources.length?'질문과 관련된 공식 페이지에서 다음 내용을 찾았습니다. 아래 원문 발췌와 출처를 확인해 주세요.'+(numerical?'\n\n지역·기간별 통계 수치는 이 검색 결과만으로 확정할 수 없습니다. 공식 통계 화면에서 조건을 지정해 조회해 주세요.':''):pages.length?'공개 페이지에서 질문과 일치하는 내용을 찾지 못했습니다. 검색어를 짧게 바꾸거나 공식 사이트에서 확인해 주세요.':'등기정보광장에 연결하지 못했거나 페이지 내용을 읽을 수 없습니다. 잠시 후 다시 시도하거나 공식 사이트에서 확인해 주세요.',sources,source:BASE+'/',status:sources.length?'found':pages.length?'no_results':'unavailable',queryType:'공식 공개 페이지 검색',searchedAt:new Date().toISOString()};
+}
+export default {async fetch(request,env){
+ const url=new URL(request.url);
+ const origin=request.headers.get('Origin');const allowed=origin===url.origin||origin==='https://sofajohnlee.github.io';
+ const headers={'Content-Type':'application/json; charset=utf-8','Vary':'Origin',...(allowed?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'POST, OPTIONS'}:{})};
+ const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers});
+ if(url.pathname!=='/api/ask')return env.ASSETS.fetch(request);
+ if(origin&&!allowed)return reply({error:'허용되지 않은 출처입니다.'},403);
+ if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
+ if(request.method!=='POST')return reply({error:'POST 요청이 필요합니다.'},405);
+ if(Number(request.headers.get('Content-Length'))>8000)return reply({error:'질문이 너무 깁니다.'},413);
+ let body;try{const raw=await request.text();if(raw.length>8000)return reply({error:'질문이 너무 깁니다.'},413);body=JSON.parse(raw);}catch{return reply({error:'올바른 JSON이 필요합니다.'},400);}
+ if(typeof body?.question!=='string'||!body.question.trim()||body.question.length>500)return reply({error:'질문을 1~500자로 입력해 주세요.'},400);
+ try{return reply(await search(body.question.trim()));}catch{return reply({error:'검색 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'},502);}
 }};
-
-function isStatistics(q){return /(몇\s*건|건수|현황|통계|추이|비율|증가|감소|지역별|월별|연도별|순위|상위|비교)/.test(q)||( /(경매|공매|저당|근저당|소유권|매매|법인등기|부기등기|특별조치법)/.test(q) && /(몇|건|현황|통계|추이|얼마|비교)/.test(q));}
-function selectDataset(q){for(const d of DATASETS)if(d.words.some(w=>q.includes(w)))return d;return DATASETS[1];}
-function period(q){let m=q.match(/(20\d{2})\s*년\s*(0?[1-9]|1[0-2])\s*월/);if(!m)m=q.match(/(20\d{2})[-./](0?[1-9]|1[0-2])/);if(m)return{year:m[1],month:m[2].padStart(2,'0'),label:`${m[1]}년 ${m[2]}월`};m=q.match(/(20\d{2})\s*년/);if(m)return{year:m[1],month:null,label:`${m[1]}년`};return{year:null,month:null,label:'최신 조회'};}
-function datasetUrl(d,p){const y=p.year||new Date().getFullYear();const m=p.month||(p.year?'12':String(new Date().getMonth()+1).padStart(2,'0'));return`${IROS_BASE}/cr/dv/selectCrDvDataInfograpDetl.do?rdata_seq=${d.seq}&ris_menu_seq=${MENU_SEQ}&search_end_date=${y}${m}&search_start_date=${y}${m}`;}
-async function fetchDataset(d,p){const u=datasetUrl(d,p);try{const r=await fetch(u,{headers:{'User-Agent':'st_bot-registry-information-assistant/1.0'}});if(!r.ok)return null;const t=clean(await r.text());if(t.length<300)return null;const facts=[];for(const re of [/임의경매\s*([0-9,]+)/,/강제경매\s*([0-9,]+)/,/공매공고\s*([0-9,]+)/,/개인\s*([0-9,]+)/,/법인\s*([0-9,]+)/]){const m=t.match(re);if(m)facts.push(m[0].replace(/\s+/g,' '));}
-  const h=headline(t,p);if(!h&&!facts.length)return null;let a=`${p.label} ${d.name}을(를) 공식 등기정보광장에서 조회했습니다.`;if(h)a+=`\n\n${h}`;if(facts.length)a+=`\n\n확인된 세부 항목: ${facts.join(', ')}`;a+='\n\n※ 조회 시점에 따라 일부 데이터가 변경될 수 있습니다.';return{answer:a,source:u,dataDate:p.label,queryType:d.name};}catch{return null;}}
-function headline(t,p){if(!p.month)return null;const re=new RegExp(`${esc(`${p.year}년 ${Number(p.month)}월`)}[^.]{0,180}?(\\d[\\d,]*)\\s*건(?:입니다)?`);const m=t.match(re);return m?m[0]:null;}
-function esc(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
-function clean(h){return h.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim();}
-function json(v,s,h){return new Response(JSON.stringify(v),{status:s,headers:h});}

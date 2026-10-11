@@ -4,7 +4,8 @@ const form = document.getElementById('questionForm');
 
 // Set window.REGISTRY_BOT_API_BASE in index.html after deploying worker.js.
 // Example: https://your-worker-name.your-subdomain.workers.dev
-const API_BASE = window.REGISTRY_BOT_API_BASE || '';
+const API_BASE = window.REGISTRY_BOT_API_BASE || (location.hostname.endsWith('workers.dev') || location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? location.origin : '');
+let busy = false;
 
 function addMessage(text, who = 'bot', meta = '', sourceUrl = '') {
   const row = document.createElement('div');
@@ -32,66 +33,46 @@ function addMessage(text, who = 'bot', meta = '', sourceUrl = '') {
   messages.scrollTop = messages.scrollHeight;
 }
 
-function classifyQuestion(q) {
-  const s = q.toLowerCase();
-  const api = /(open ?api|오픈 ?api|api|데이터 다운로드|공개데이터)/.test(s);
-  const statistical = /(몇 건|건수|현황|통계|추이|비율|증가|감소|경매|공매|매매|소유권|저당|신청|지역별|월별|연도별|순위|비교)/.test(s);
-  return statistical ? 'statistics' : api ? 'api' : 'general';
-}
-
 async function askBackend(q) {
   if (!API_BASE) return null;
   const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question: q })
+    body: JSON.stringify({ question: q }),
+    signal: AbortSignal.timeout(25000)
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
 
-function officialFallback(q) {
-  const type = classifyQuestion(q);
-  if (type === 'statistics') {
-    return {
-      text: '이 질문은 등기정보광장의 실제 통계·현황 데이터가 필요한 질문입니다. Worker를 연결하면 공식 데이터 페이지를 조회하여 기준일과 함께 수치를 표시합니다.',
-      meta: '조회 대상: 대한민국 법원 등기정보광장 · 데이터 시각화/등기현황',
-      source: 'https://data.iros.go.kr/cr/dv/selectCrDvDataInfograpDetl.do?rdata_seq=6&ris_menu_seq=0000000016'
-    };
-  }
-  if (type === 'api') {
-    return {
-      text: '등기정보광장 Open API는 회원가입·로그인 후 Open API 메뉴에서 신청하고 승인 및 인증키 발급 절차를 거쳐 이용합니다. 인증키는 브라우저에 노출하지 않고 서버에서 관리해야 합니다.',
-      meta: '출처: 대한민국 법원 등기정보광장 Open API 안내',
-      source: 'https://data.iros.go.kr/rp/oa/openOapiIntro.do'
-    };
-  }
-  return {
-    text: '등기정보광장은 등기현황, 데이터 시각화, 공개데이터, Open API 등의 서비스를 제공합니다. 통계 질문은 공식 데이터 조회 결과를 우선 사용하도록 구성했습니다.',
-    meta: '출처: 대한민국 법원 등기정보광장',
-    source: 'https://data.iros.go.kr/'
-  };
-}
-
 async function handleQuestion(q) {
-  addMessage(q, 'user');
-  input.value = '';
-  addMessage('공식 데이터를 조회 중입니다…');
+  if (busy) return;
+  if (q.length > 500) { addMessage('질문은 500자 이내로 입력해 주세요.'); return; }
+  busy = true;
+  document.querySelectorAll('button').forEach(b => b.disabled = true);
+  addMessage(q, 'user'); input.value = '';
+  addMessage('공식 페이지를 검색 중입니다…');
   const loading = messages.lastElementChild;
   try {
     const result = await askBackend(q);
     loading.remove();
-    if (result) {
-      const meta = [result.queryType, result.dataDate ? `기준일: ${result.dataDate}` : ''].filter(Boolean).join(' · ');
-      addMessage(result.answer || result.text || '조회 결과가 없습니다.', 'bot', meta || '실시간 공식자료 조회 결과', result.source || '');
+    if (!result) {
+      addMessage('검색 서버가 아직 연결되지 않았습니다. 저장소 README의 배포 안내를 따라 Worker를 배포한 후 해당 주소에서 이용해 주세요.', 'bot', '서버 연결 필요', 'https://data.iros.go.kr/');
       return;
     }
-  } catch (e) {
+    addMessage(result.answer, 'bot', result.searchedAt ? `조회 시각: ${new Date(result.searchedAt).toLocaleString('ko-KR')}` : '', result.source);
+    for (const source of result.sources || []) {
+      try { if (new URL(source.url).origin !== 'https://data.iros.go.kr') continue; } catch { continue; }
+      addMessage(source.excerpt, 'bot', `원문 발췌 · ${source.title}`, source.url);
+    }
+  } catch {
     loading.remove();
-    addMessage('실시간 조회 서버에 연결하지 못했습니다. 현재는 공식 사이트 안내로 전환합니다.');
+    addMessage('검색 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'bot', '조회 실패', 'https://data.iros.go.kr/');
+  } finally {
+    busy = false;
+    document.querySelectorAll('button').forEach(b => b.disabled = false);
+    input.focus();
   }
-  const result = officialFallback(q);
-  addMessage(result.text, 'bot', result.meta, result.source);
 }
 
 form.addEventListener('submit', e => {

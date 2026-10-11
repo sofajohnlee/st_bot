@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - 'worker.js'
+      - 'public/**'
+      - 'app.js'
+      - 'index.html'
+      - 'package.json'
       - 'wrangler.jsonc'
       - '.github/workflows/deploy-worker.yml'
 
@@ -18,6 +22,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Validate
+        run: npm test
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v4

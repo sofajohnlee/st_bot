@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>등기정보광장 검색 안내봇</title>
+  <meta name="description" content="대한민국 법원 등기정보광장 공개자료 안내봇">
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f7fb;color:#172033}.app{max-width:900px;margin:0 auto;padding:32px 18px}.hero{background:#163b68;color:white;border-radius:24px;padding:32px;margin-bottom:18px}.badge{font-size:14px;opacity:.9}.hero h1{font-size:36px;line-height:1.15;margin:14px 0 10px}.hero h1 span{font-weight:800}.hero p{margin:0;opacity:.9}.chat{background:white;border-radius:24px;padding:20px;box-shadow:0 8px 30px rgba(20,40,70,.08)}.messages{min-height:330px;max-height:520px;overflow:auto;padding:8px}.message{display:flex;gap:10px;margin:14px 0}.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#e7eef7;font-size:12px;font-weight:700;flex:none}.bubble{background:#eef4fa;border-radius:16px;padding:13px 15px;line-height:1.55;max-width:80%;white-space:pre-wrap}.message.user{justify-content:flex-end}.message.user .avatar{order:2}.message.user .bubble{background:#163b68;color:white}.meta{margin-top:9px;font-size:12px;opacity:.72}.source-link{color:#315f91;text-decoration:none;font-weight:700}.message.user .source-link{color:#dcecff}.suggestions{display:flex;gap:8px;flex-wrap:wrap;padding:14px 8px}.suggestions button{border:1px solid #d5dfeb;background:white;border-radius:999px;padding:9px 13px;cursor:pointer}.input-row{display:flex;gap:8px;border-top:1px solid #e7ebf0;padding-top:14px}.input-row input{flex:1;border:1px solid #cbd5e1;border-radius:12px;padding:13px;font-size:16px}.input-row button{border:0;border-radius:12px;padding:0 20px;background:#163b68;color:white;font-weight:700;cursor:pointer}.notice{margin:0 8px 12px;padding:10px 12px;border-radius:10px;background:#f5f8fc;color:#5d6b7d;font-size:13px;line-height:1.5}footer{text-align:center;padding:18px;color:#667085;font-size:14px}footer a{color:#163b68;text-decoration:none;font-weight:700}@media(max-width:600px){.hero h1{font-size:28px}.bubble{max-width:88%}}
+  </style>
+</head>
+<body>
+<main class="app">
+  <header class="hero">
+    <div class="badge">🏛 대한민국 법원 등기정보광장</div>
+    <h1>등기정보광장<br><span>검색 안내봇</span></h1>
+    <p>등기현황·통계·데이터 활용·Open API 정보를 공식자료를 기준으로 안내합니다.</p>
+  </header>
+  <section class="chat" aria-label="안내봇">
+    <div class="notice">공식 사이트가 운영하는 챗봇은 아닙니다. 공개 페이지의 <b>원문 발췌·출처·조회 시각</b>를 제공합니다. 조회 시각은 통계 기준일과 다릅니다.</div>
+    <div id="messages" class="messages" role="log" aria-live="polite">
+      <div class="message bot"><div class="avatar">AI</div><div class="bubble">안녕하세요. 등기정보광장 검색 안내봇입니다.
+
+질문을 입력하면 등기정보광장의 공개 페이지에서 관련 내용을 검색하고 원문 발췌와 출처를 안내합니다.
+
+<b>중요:</b> 최신 통계 수치는 AI가 임의로 생성하지 않고 공식 데이터 조회 결과를 기준으로 답변합니다.</div></div>
+    </div>
+    <div class="suggestions">
+      <button data-q="2026년 9월 경매·공매등기 신청 현황은?">최근 경매·공매 현황</button>
+      <button data-q="2026년 9월 소유권이전등기 신청 현황은?">소유권이전 현황</button>
+      <button data-q="2026년 9월 (근)저당권등기 신청 현황은?">근저당권 현황</button>
+      <button data-q="Open API는 어떻게 이용하나요?">Open API 이용방법</button>
+      <button data-q="등기현황에서는 어떤 정보를 볼 수 있나요?">등기현황 안내</button>
+      <button data-q="등기정보광장이 무엇인가요?">등기정보광장 소개</button>
+    </div>
+    <form id="questionForm" class="input-row">
+      <input id="question" maxlength="500" autocomplete="off" placeholder="예: 2026년 9월 경매·공매 신청은 몇 건인가요?" aria-label="질문">
+      <button type="submit">검색</button>
+    </form>
+  </section>
+  <footer><a href="https://data.iros.go.kr/" target="_blank" rel="noopener">등기정보광장 바로가기 ↗</a> · 비공식 안내봇 · 공식 공개자료 검색</footer>
+</main>
+<script>
+  // Cloudflare Worker 배포 후 아래 주소를 실제 Worker URL로 바꾸면 실시간 조회가 활성화됩니다.
+  // 예: window.REGISTRY_BOT_API_BASE = 'https://your-worker-name.your-subdomain.workers.dev';
+  window.REGISTRY_BOT_API_BASE = '';
+</script>
+<script src="app.js"></script>
+</body>
+</html>
