@@ -112,10 +112,10 @@ export async function officialRequest(path,params={},text=false) {
  if(![GRAPH,'/cr/dv/getLastMonth.do',MAP].includes(path))throw new Error('Disallowed statistics endpoint');
  const cacheUrl=BASE+path+(text?'':('?'+new URLSearchParams(params)));
  const cache=globalThis.caches?.default;const hit=await cache?.match(cacheUrl);if(hit)return text?hit.text():hit.json();
- const r=await fetch(BASE+path,text?{signal:AbortSignal.timeout(10000)}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(params),signal:AbortSignal.timeout(12000),redirect:'error'});
- if(!r.ok)throw new Error('Official statistics unavailable');
+ const r=await fetch(BASE+path,text?{signal:AbortSignal.timeout(10000)}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','X-Requested-With':'XMLHttpRequest','Referer':BASE+'/cr/dv/openDataInfograp.do?ris_menu_seq=0000000016'},body:new URLSearchParams(params),signal:AbortSignal.timeout(12000),redirect:'error'});
+ if(!r.ok)throw new Error('upstream_http_'+r.status);
  const raw=await r.text();if(raw.length>1000000)throw new Error('Response too large');
- const value=text?raw:JSON.parse(raw);
+ let value;try{value=text?raw:JSON.parse(raw);}catch{throw new Error('upstream_invalid_json_'+(path.includes('getLastMonth')?'latest':'graph'));}
  if(cache)await cache.put(cacheUrl,new Response(raw,{headers:{'Content-Type':text?'text/xml':'application/json','Cache-Control':'public,max-age=900'}}));
  return value;
 }
@@ -165,6 +165,6 @@ export async function statistics(q,request=officialRequest,now=new Date()) {
   answer+='\n※ 월별 합계는 해당 기간의 신청량 합계입니다. 신청 부동산 수는 신청사건 건수와 다르며, 기간 내 고유 부동산 수를 뜻하지 않습니다. 조회 시점에 따라 공식 자료가 변경될 수 있습니다.';
   return {...base,status:'found',aiStatus:'statistics',answer,statistics:{metric:metric.title,unit,latest,period,results},sources:[{title:'등기정보광장 공식 통계',url:source,excerpt:`${metric.title} · ${metric.property?'신청 부동산 수':'신청 건수'} · ${labelMonth(period.start)} ~ ${labelMonth(period.end)}. 공식 화면의 JSON 응답을 조회하고 서버에서 합계를 계산하였습니다.`}]};
  } catch(e) {
-  return {...base,status:e instanceof QueryError?'clarification_required':'unavailable',aiStatus:'statistics',answer:e instanceof QueryError?e.message:'공식 통계 조회에 실패하여 수치를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요. 수치를 임의로 생성하지 않습니다.'};
+  return {...base,status:e instanceof QueryError?'clarification_required':'unavailable',aiStatus:'statistics',errorCode:e instanceof QueryError?'query_conditions':e.name==='TimeoutError'?'upstream_timeout':e.message,answer:e instanceof QueryError?e.message:'공식 통계 조회에 실패하여 수치를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요. 수치를 임의로 생성하지 않습니다.'};
  }
 }
