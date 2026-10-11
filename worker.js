@@ -1,3 +1,4 @@
+import { statistics } from './statistics.js';
 const BASE = 'https://data.iros.go.kr';
 const SEEDS = [BASE+'/', BASE+'/iu/no/openNotic.do?ris_menu_seq=0000000034', BASE+'/iu/rr/openMatrm.do?ris_menu_seq=0000000036', BASE+'/cr/rs/openRgsCs.do?ris_menu_seq=0000000022'];
 export function officialUrl(value) { try { const u=new URL(value,BASE); return u.origin===BASE && !/logout|login|download|delete|insert|update/i.test(u.pathname) ? u.href : null; } catch { return null; } }
@@ -46,6 +47,8 @@ async function infer(ai, messages, max_tokens, timeoutMs) {
  } finally {clearTimeout(timer);}
 }
 export async function answerQuestion(question, env, load=page) {
+ const stats=await statistics(question);
+ if(stats)return stats;
  let searchQuery=question;
  let interpretation='original';
  const ai=env.AI;
