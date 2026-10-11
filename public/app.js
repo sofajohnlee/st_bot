@@ -39,7 +39,7 @@ async function askBackend(q) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question: q }),
-    signal: AbortSignal.timeout(25000)
+    signal: AbortSignal.timeout(60000)
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
@@ -51,7 +51,7 @@ async function handleQuestion(q) {
   busy = true;
   document.querySelectorAll('button').forEach(b => b.disabled = true);
   addMessage(q, 'user'); input.value = '';
-  addMessage('공식 페이지를 검색 중입니다…');
+  addMessage('질문을 분석하고 공식 자료로 답변을 작성 중입니다…');
   const loading = messages.lastElementChild;
   try {
     const result = await askBackend(q);
@@ -60,10 +60,12 @@ async function handleQuestion(q) {
       addMessage('검색 서버가 아직 연결되지 않았습니다. 저장소 README의 배포 안내를 따라 Worker를 배포한 후 해당 주소에서 이용해 주세요.', 'bot', '서버 연결 필요', 'https://data.iros.go.kr/');
       return;
     }
-    addMessage(result.answer, 'bot', result.searchedAt ? `조회 시각: ${new Date(result.searchedAt).toLocaleString('ko-KR')}` : '', result.source);
+    const mode = result.llmUsed ? 'Llama 3.3 70B · AI 답변' : '원문 검색 · AI 답변 미사용';
+    const meta = mode + (result.searchedAt ? ` · 조회 시각: ${new Date(result.searchedAt).toLocaleString('ko-KR')}` : '');
+    addMessage(result.answer, 'bot', meta, result.source);
     for (const source of result.sources || []) {
       try { if (new URL(source.url).origin !== 'https://data.iros.go.kr') continue; } catch { continue; }
-      addMessage(source.excerpt, 'bot', `원문 발췌 · ${source.title}`, source.url);
+      addMessage(source.excerpt, 'bot', `[${(result.sources || []).indexOf(source) + 1}] 원문 발췌 · ${source.title}`, source.url);
     }
   } catch {
     loading.remove();
