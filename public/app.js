@@ -119,22 +119,26 @@ async function handleQuestion(q) {
       while(conversationHistory.length>12 || conversationHistory.reduce((sum,m)=>sum+m.content.length,0)>18000)conversationHistory.splice(0,2);
     }
     const mode = result.queryType === '첨부 PDF 질의' ? (result.llmUsed ? '첨부 PDF · AI 답변' : '첨부 PDF · AI 답변 미사용') : result.queryType === '공식 통계 조회' ? '공식 통계 조회 · 서버 수치 검증' : result.llmUsed ? 'Llama 3.3 70B · AI 답변' : '원문 검색 · AI 답변 미사용';
-    const meta = mode + (result.searchedAt ? ` · 조회 시각: ${new Date(result.searchedAt).toLocaleString('ko-KR')}` : '');
+    const meta = (result.queryType && !["첨부 PDF 질의","공식 통계 조회","공식 공개 페이지 검색"].includes(result.queryType) ? result.queryType+" · " : "") + mode + (result.searchedAt ? ` · 조회 시각: ${new Date(result.searchedAt).toLocaleString('ko-KR')}` : '');
     const bubble = addMessage(result.answer, 'bot', meta, (result.sources || []).length ? '' : result.source);
     const sourceList = document.createElement('div');
     sourceList.className = 'meta source-list';
     sourceList.setAttribute('aria-label', '답변 출처');
     for (const [index, source] of (result.sources || []).entries()) {
-      try { if (new URL(source.url).origin !== 'https://data.iros.go.kr') continue; } catch { continue; }
+      try { if (!['https://data.iros.go.kr','https://www.iros.go.kr','https://www.easylaw.go.kr','https://easylaw.go.kr','https://www.law.go.kr','https://law.go.kr','https://glaw.scourt.go.kr'].includes(new URL(source.url).origin)) continue; } catch { continue; }
       const link = document.createElement('a');
       link.href = source.url;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.className = 'source-link';
-      link.textContent = `[${index + 1}] ${source.title || '공식 자료'} ↗`;
+      link.textContent = `[${index + 1}] ${source.title || '공식 자료'}${source.effectiveDate ? ' · 시행 '+source.effectiveDate : ''} ↗`;
       sourceList.appendChild(link);
     }
-    if(result.queryType==='첨부 PDF 질의' && pdfUrl) {
+    for(const source of result.guideLinks||[]) {
+      try {if(!['https://www.iros.go.kr','https://www.easylaw.go.kr','https://www.law.go.kr','https://glaw.scourt.go.kr'].includes(new URL(source.url).origin))continue;}catch{continue;}
+      const link=document.createElement('a');link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';link.className='source-link';link.textContent='안내: '+source.title+' ↗';sourceList.appendChild(link);
+    }
+    if(result.queryType==='첨부 PDF 질의'  && pdfUrl) {
       const pages=[...new Set((result.documentSources||[]).map(s=>s.page))];
       for(const page of pages){const link=document.createElement('a');link.href=pdfUrl+'#page='+page;link.target='_blank';link.rel='noopener';link.className='source-link';link.textContent=`[PDF p.${page}]`;sourceList.appendChild(link);}
       const info=document.createElement('div');info.className='meta';info.textContent='관련 발췌를 기준으로 답변합니다. 페이지는 PDF 순서 기준이며 문서 전체 검토 결과가 아닙니다.';bubble.appendChild(info);

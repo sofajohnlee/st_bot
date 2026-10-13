@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>등기정보광장 AI 안내봇</title>
-  <meta name="description" content="대한민국 법원 등기정보광장 공개자료 안내봇">
+  <title>등기 AI 안내봇</title>
+  <meta name="description" content="인터넷등기소 이용·등기절차·관련 규정·등기정보광장 공식자료 안내봇">
   <style>
     *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f7fb;color:#172033}.app{max-width:900px;margin:0 auto;padding:32px 18px}.hero{background:#163b68;color:white;border-radius:24px;padding:32px;margin-bottom:18px}.badge{font-size:14px;opacity:.9}.hero h1{font-size:36px;line-height:1.15;margin:14px 0 10px}.hero h1 span{font-weight:800}.hero p{margin:0;opacity:.9}.chat{background:white;border-radius:24px;padding:20px;box-shadow:0 8px 30px rgba(20,40,70,.08)}.messages{min-height:330px;max-height:520px;overflow:auto;padding:8px}.message{display:flex;gap:10px;margin:14px 0}.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#e7eef7;font-size:12px;font-weight:700;flex:none}.bubble{background:#eef4fa;border-radius:16px;padding:13px 15px;line-height:1.55;max-width:80%;white-space:pre-wrap}.message.user{justify-content:flex-end}.message.user .avatar{order:2}.message.user .bubble{background:#163b68;color:white}.meta{margin-top:9px;font-size:12px;opacity:.72}.source-list{display:flex;flex-wrap:wrap;gap:6px 12px}.source-link{color:#315f91;text-decoration:none;font-weight:700}.message.user .source-link{color:#dcecff}.suggestions{display:flex;gap:8px;flex-wrap:wrap;padding:14px 8px}.suggestions button{border:1px solid #d5dfeb;background:white;border-radius:999px;padding:9px 13px;cursor:pointer}.input-row{display:flex;gap:8px;border-top:1px solid #e7ebf0;padding-top:14px}.input-row input{min-width:0;flex:1;border:1px solid #cbd5e1;border-radius:12px;padding:13px;font-size:16px}.input-row button{border:0;border-radius:12px;padding:0 20px;background:#163b68;color:white;font-weight:700;cursor:pointer}.notice{margin:0 8px 12px;padding:10px 12px;border-radius:10px;background:#f5f8fc;color:#5d6b7d;font-size:13px;line-height:1.5}footer{text-align:center;padding:18px;color:#667085;font-size:14px}footer a{color:#163b68;text-decoration:none;font-weight:700}@media(max-width:600px){.hero h1{font-size:28px}.bubble{max-width:88%}}
   .attachment{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 8px;font-size:13px}.attachment button{padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:white;cursor:pointer}.attachment-status{overflow-wrap:anywhere;color:#475569}button:disabled{opacity:.5;cursor:wait}</style>
@@ -12,21 +12,25 @@
 <body>
 <main class="app">
   <header class="hero">
-    <div class="badge">🏛 대한민국 법원 등기정보광장</div>
-    <h1>등기정보광장<br><span>AI 안내봇</span></h1>
-    <p>등기현황·통계·데이터 활용·Open API 정보를 공식자료를 기준으로 안내합니다.</p>
+    <div class="badge">🏛 공식 등기자료 기반 · 비공식 안내 서비스</div>
+    <h1>등기<br><span>AI 안내봇</span></h1>
+    <p>인터넷등기소 이용 · 등기절차 · 관련 규정 · 등기정보광장 통계를 안내합니다.</p>
   </header>
   <section class="chat" aria-label="안내봇">
-    <div class="notice">공식 사이트가 운영하는 챗봇은 아닙니다. Llama 3.3 70B가 공개자료를 근거로 답변하며 <b>출처 링크·조회 시각</b>를 제공합니다. AI 답변은 원문과 함께 확인해 주세요. 조회 시각은 통계 기준일과 다릅니다. 질문은 Cloudflare AI로 전송되므로 개인정보는 입력하지 마세요.</div>
+    <div class="notice">공식 사이트가 운영하는 챗봇은 아닙니다. Llama 3.3 70B가 법원·법제처의 공개자료를 근거로 답변하며 <b>출처 링크·조회 시각</b>를 제공합니다. AI 답변은 원문과 함께 확인해 주세요. 조회 시각은 통계 기준일과 다릅니다. 질문은 Cloudflare AI로 전송되므로 개인정보는 입력하지 마세요.</div>
     <div id="messages" class="messages" role="log" aria-live="polite">
-      <div class="message bot"><div class="avatar">AI</div><div class="bubble">안녕하세요. 등기정보광장 AI 안내봇입니다.
+      <div class="message bot"><div class="avatar">AI</div><div class="bubble">안녕하세요. 등기 AI 안내봇입니다.
 
-질문을 입력하면 Llama 3.3 70B가 질문을 분석하고 등기정보광장의 공개자료를 근거로 답변합니다. 답변의 근거가 되는 공식 출처 링크도 함께 제공합니다.
+질문을 입력하면 Llama 3.3 70B가 질문을 분석하고 인터넷등기소, 등기정보광장, 법제처 생활법령정보와 국가법령정보센터의 공식자료를 근거로 답변합니다. 답변의 근거가 되는 공식 출처 링크도 함께 제공합니다.
 
 <b>중요:</b> 지역·기간별 통계는 공식 화면의 데이터 응답을 직접 조회하여 계산합니다. 신청 건수와 신청 부동산 수를 구분해 표시합니다.</div></div>
     </div>
     <div class="attachment"><button type="button" id="newConversation">새 대화</button><span>최근 6회 질문·답변을 참조합니다. PDF 변경·해제 시 대화가 초기화됩니다.</span></div>
     <div class="suggestions">
+      <button data-q="인터넷등기소에서 등기사항증명서를 열람·발급하려면 어떻게 하나요?">열람·발급 이용방법</button>
+      <button data-q="매매에 의한 소유권이전등기 신청절차를 알려줘">소유권이전 절차</button>
+      <button data-q="상속 소유권이전등기 준비서류를 알려줘">상속등기 서류</button>
+      <button data-q="부동산등기법 제24조의 등기신청 방법을 알려줘">등기 관련 규정</button>
       <button data-q="2026년 9월 경매·공매등기 신청 현황은?">최근 경매·공매 현황</button>
       <button data-q="서울과 부산의 2026년 9월 소유권이전 신청 부동산 수 비교">지역별 소유권이전 비교</button>
       <button data-q="서울 2026년 9월 근저당권설정 신청 부동산 수는?">서울 근저당권 현황</button>
@@ -41,7 +45,7 @@
       <button type="submit">질문</button>
     </form>
   </section>
-  <footer><a href="https://data.iros.go.kr/" target="_blank" rel="noopener">등기정보광장 바로가기 ↗</a> · 비공식 안내봇 · 공식 공개자료 검색</footer>
+  <footer><a href="https://data.iros.go.kr/" target="_blank" rel="noopener">등기정보광장 바로가기 ↗</a> · <a href="https://www.iros.go.kr/" target="_blank" rel="noopener">인터넷등기소 ↗</a> · <a href="https://www.law.go.kr/" target="_blank" rel="noopener">국가법령정보센터 ↗</a> · 비공식 안내봇</footer>
 </main>
 <script>
   // Cloudflare Worker 배포 후 아래 주소를 실제 Worker URL로 바꾸면 실시간 조회가 활성화됩니다.

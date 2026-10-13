@@ -7,6 +7,7 @@ on:
     paths:
       - 'worker.js'
       - 'documents.js'
+      - 'guidance.js'
       - 'scripts/**'
       - 'package-lock.json'
       - 'statistics.js'
