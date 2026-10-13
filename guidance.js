@@ -54,7 +54,7 @@ export async function searchGuidance(q,load) {
  const results=await Promise.allSettled(seeds.map(g=>load(g.url)));
  const pages=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
  // Related official article links can supply the law text behind an explanatory page.
- const extra=[...new Set(pages.flatMap(p=>p.links||[]).filter(l=>/법|규칙|등기|신청|서류/.test(l.title)).map(l=>safeSource(l.url)).filter(u=>u&&!new URL(u).hash&&(/law\.go\.kr/.test(new URL(u).hostname)&&!u.includes('easylaw')||u.includes('/CSP/CnpClsMain.laf')&&new URL(u).searchParams.get('csmSeq')==='566')))].filter(u=>!seeds.some(s=>s.url===u)).slice(0,3);
+ const extra=[...new Set(pages.flatMap(p=>p.links||[]).filter(l=>/법|규칙|등기|신청|서류/.test(l.title)).map(l=>safeSource(l.url)).filter(u=>u&&!new URL(u).hash&&(/law\.go\.kr/.test(new URL(u).hostname)&&!u.includes('easylaw'))))].filter(u=>!seeds.some(s=>s.url===u)).slice(0,3);
  const more=await Promise.allSettled(extra.map(load));pages.push(...more.filter(r=>r.status==='fulfilled').map(r=>r.value));
  const sources=[];
  if(domain==='인터넷등기소 이용 안내'&&!pages.some(p=>new URL(p.url).hostname==='www.iros.go.kr')){
