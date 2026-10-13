@@ -25,3 +25,16 @@ test('연결 실패와 Q/A 없는 셸을 수집 성공으로 표시하지 않음
 test('순환 참조와 대량 자산을 제한',async()=>{
  const calls=[];await collectChat(async url=>{calls.push(url);return '<script src="'+CHAT_URL+'"></script>'+Array.from({length:20},(_,i)=>`<script src="./qa${i}.js"></script>`).join('');});assert.ok(calls.length<=7);assert.equal(new Set(calls).size,calls.length);
 });
+
+const {parseDialogue,collectDialogue}=await import('../iros-chat.js');
+test('대화 응답의 match 답변만 근거로 사용하고 메뉴는 질의 후보로 분리',()=>{
+ const f={speech:[{text:'공식 안내 답변'}],messages:[{items:[{button:{label:'상속등기',value:'상속등기',action:'query'}}]}]};
+ const match=parseDialogue({data:{result:{fulfillment:{...f,response_status:'match'}}}},'상속등기');assert.equal(match.pair.answer,'공식 안내 답변');
+ const menu=parseDialogue({data:{result:{fulfillment:{...f,response_status:'suggest'}}}},'상속등기');assert.equal(menu.pair,null);assert.equal(menu.suggestions.length,1);
+ assert.throws(()=>parseDialogue({data:{}},'질문'));
+});
+test('대화 API는 일반 질문만 조회하고 원문 사용자 정보 없이 독립 세션 사용',async()=>{
+ const calls=[];
+ const result=await collectDialogue(async body=>{calls.push(body);return {data:{result:{fulfillment:{response_status:'match',speech:[{text:'등기 안내 답변'}],messages:[]}}}};},async()=> '127.0.0.1');
+ assert.equal(result.items.length,4);assert.equal(calls[0].in_str,'자주하는 질문');assert.equal(calls[0].in_type,'query');assert.match(calls[0].session_id,/^session_/);assert.equal(calls[0].parameters.position_status,'N');
+});

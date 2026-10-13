@@ -1,5 +1,5 @@
 export const CHAT_URL='https://www.iros.go.kr/chat/';
-const CACHE_URL='https://registry-bot.internal/iros-chat-qa-v4';
+const CACHE_URL='https://registry-bot.internal/iros-chat-qa-v5';
 const QUESTION_KEYS=['question','questionText','question_text','qstn','qstnCn','questionCn','query','faqQuestion','utterance'];
 const ANSWER_KEYS=['answer','answerText','answer_text','ans','ansCn','answerCn','response','faqAnswer'];
 const text=value=>typeof value==='string'?value.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/\s+/g,' ').trim():'';
@@ -37,7 +37,7 @@ export function extractPairs(raw){
 export function discoverAssets(raw,base=CHAT_URL){
  const values=[];
  for(const m of raw.matchAll(/(?:src|href)\s*=\s*["']([^"']+)["']/gi))values.push(m[1]);
- for(const m of raw.matchAll(/["']([^"'\s]+\.(?:json|js|mjs)(?:\?[^"'\s]*)?)["']/gi))values.push(m[1]);
+ for(const m of raw.matchAll(/["']([^"'\s]+\.json(?:\?[^"'\s]*)?)["']/gi))values.push(m[1]);
  return [...new Set(values.map(v=>chatAsset(v,base)).filter(Boolean))];
 }
 async function readPublic(url){
@@ -51,30 +51,60 @@ async function readPublic(url){
  return raw;
 }
 export async function collectChat(load=readPublic){
- const queue=[CHAT_URL],visited=new Set(),items=[],errors=[],integrationHints=[];
+ const queue=[CHAT_URL],visited=new Set(),items=[],errors=[];let apiSchemaVerified=false;
  // Root plus at most six referenced assets, two bounded discovery rounds.
  for(let round=0;round<3&&queue.length&&visited.size<7;round++){
   const batch=queue.splice(0,Math.min(3,7-visited.size)).filter(u=>!visited.has(u));batch.forEach(u=>visited.add(u));
   const results=await Promise.allSettled(batch.map(load));
   for(let i=0;i<results.length;i++){
    const r=results[i],url=batch[i];if(r.status!=='fulfilled'){errors.push({url,reason:String(r.reason?.message||'unavailable')});continue;}
-   if(/\.js(?:\?|$)/.test(url)){
-    const handler=r.value.lastIndexOf('function mr(');if(handler>=0)integrationHints.push({url,snippet:r.value.slice(handler,handler+9000)});
-    for(const m of r.value.matchAll(/(?:\.(?:post|get)\(\s*["']|baseURL\s*:|["'][^"'\n]{0,100}(?:faq|qna|chatbot|intent|answer)[^"'\n]{0,100}["'])/gi)){
-     const snippet=r.value.slice(Math.max(0,m.index-100),m.index+400);
-     if(integrationHints.length<24&&!integrationHints.some(x=>x.snippet===snippet))integrationHints.push({url,snippet});
-    }
-   }
+   if(/\.js(?:\?|$)/.test(url)&&r.value.includes('"/chat/dialogue"')&&r.value.includes('session_id:')&&r.value.includes('in_str:'))apiSchemaVerified=true;
    for(const item of extractPairs(r.value))if(!items.some(x=>x.question===item.question&&x.answer===item.answer))items.push({...item,assetUrl:url});
    queue.push(...discoverAssets(r.value,url).filter(u=>!visited.has(u)&&!queue.includes(u)));
   }
  }
- return {status:items.length?'ready':errors.some(e=>e.url===CHAT_URL)?'unavailable':'no_public_qa',items:items.slice(0,2000),checkedAt:new Date().toISOString(),source:CHAT_URL,assets:[...visited],errors,integrationHints};
+ return {status:items.length?'ready':errors.some(e=>e.url===CHAT_URL)?'unavailable':'no_public_qa',items:items.slice(0,2000),checkedAt:new Date().toISOString(),source:CHAT_URL,assets:[...visited],errors,apiSchemaVerified};
+}
+// Request/response schema verified in main.818b0933.js on 2026-10-14.
+export function parseDialogue(raw,question){
+ const f=raw?.data?.result?.fulfillment||raw?.result?.fulfillment;
+ if(!f||typeof f!=='object')throw new Error('invalid_dialogue_schema');
+ const suggestions=[];
+ for(const msg of f.messages||[])for(const item of msg.items||[]){const b=item.button;if(b?.action==='query'&&typeof b.value==='string'&&b.value.length<=300&&text(b.label))suggestions.push({question:text(b.label),value:b.value});}
+ for(const item of f.suggest||[])if(typeof item.sentence==='string')suggestions.push({question:text(item.sentence),value:text(item.sentence)});
+ const answer=(f.speech||[]).map(x=>text(x.text)).filter(Boolean).join('\n');
+ const matched=f.response_status==='match';
+ return {pair:matched&&answer&&!/서버로.*응답.*못|다시.*질문|이해하지.*못|죄송.*답변|찾지 못/.test(answer)?{question,answer,assetUrl:CHAT_URL+'dialogue'}:null,suggestions};
+}
+async function dialogueFetch(payload){
+ const r=await fetch(CHAT_URL+'dialogue',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Referer':CHAT_URL},body:JSON.stringify(payload),signal:AbortSignal.timeout(6000),redirect:'manual'});
+ if(!r.ok)throw new Error('dialogue_http_'+r.status);
+ const raw=await r.text();if(raw.length>300000)throw new Error('dialogue_too_large');return JSON.parse(raw);
+}
+export async function collectDialogue(request=dialogueFetch,getUserId=async()=>{
+ const r=await fetch(CHAT_URL+'getIp',{signal:AbortSignal.timeout(6000),redirect:'manual'});if(!r.ok)throw new Error('getIp_http_'+r.status);
+ const ip=(await r.text()).trim().replace(/^"|"$/g,'').replace(/::ffff:/g,'').split(',')[0];if(!/^[0-9a-f:.]{3,60}$/i.test(ip))throw new Error('invalid_getIp');return ip;
+}){
+ const user_id=await getUserId(),session_id='session_'+crypto.randomUUID(),items=[],errors=[];
+ const queue=['자주하는 질문','매매에 의한 소유권이전등기 신청절차','상속등기 신청서류','근저당권 말소등기'];const visited=new Set();
+ // Only general public prompts and public query buttons; never forward user chat or documents.
+ while(queue.length&&visited.size<6){
+  const question=queue.shift();if(visited.has(question))continue;visited.add(question);
+  try {
+   const response=await request({user_id,in_type:'query',in_str:question,session_id,channel_id:'pc',parameters:{latitude_y:'',longitude_x:'',position_status:'N'}});
+   const result=parseDialogue(response,question);if(result.pair)items.push(result.pair);
+   for(const suggestion of result.suggestions)if(!visited.has(suggestion.value)&&!queue.includes(suggestion.value))queue.push(suggestion.value);
+  }catch(e){errors.push({url:CHAT_URL+'dialogue',reason:String(e.message)});break;}
+ }
+ return {items,errors};
 }
 export async function chatKnowledge(load=readPublic){
  const cache=globalThis.caches?.default;
  if(load===readPublic){const hit=await cache?.match(CACHE_URL);if(hit)return hit.json();}
- const data=await collectChat(load);
+ let data=await collectChat(load);
+ if(load===readPublic&&data.apiSchemaVerified&&!data.items.length){
+  try {const result=await collectDialogue();data={...data,items:result.items,status:result.items.length?'ready':result.errors.length?'unavailable':'no_public_qa',errors:[...data.errors,...result.errors],collectionMode:'official_dialogue_api'};}catch(e){data={...data,status:'unavailable',errors:[...data.errors,{url:CHAT_URL+'dialogue',reason:String(e.message)}],collectionMode:'official_dialogue_api'};}
+ }
  if(load===readPublic&&cache)await cache.put(CACHE_URL,new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json','Cache-Control':`public,max-age=${data.status==='ready'?3600:300}`}}));
  return data;
 }
@@ -87,4 +117,4 @@ export async function searchChat(q,load=readPublic){
  const data=await chatKnowledge(load),matches=relevantPairs(q,data.items);
  return {sources:matches.map(item=>({title:'인터넷등기소 등기절차 안내봇 · '+item.question,url:CHAT_URL,assetUrl:item.assetUrl,question:item.question,excerpt:'질문: '+item.question+'\n답변: '+item.answer,checkedAt:data.checkedAt,sourceType:'공식 등기절차 안내봇 질문·답변'})),chatStatus:{status:data.status,questionCount:data.items.length,matchedCount:matches.length,checkedAt:data.checkedAt,source:CHAT_URL}};
 }
-export async function chatStatus(){const data=await chatKnowledge();return {status:data.status,questionCount:data.items.length,checkedAt:data.checkedAt,source:CHAT_URL,assets:data.assets,errors:data.errors,integrationHints:data.integrationHints};}
+export async function chatStatus(){const data=await chatKnowledge();return {status:data.status,questionCount:data.items.length,checkedAt:data.checkedAt,source:CHAT_URL,collectionMode:data.collectionMode||"public_assets",assets:data.assets,errors:data.errors,apiSchemaVerified:data.apiSchemaVerified};}
