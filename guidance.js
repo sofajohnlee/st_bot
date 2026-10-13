@@ -54,9 +54,13 @@ export async function searchGuidance(q,load) {
  const results=await Promise.allSettled(seeds.map(g=>load(g.url)));
  const pages=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
  // Related official article links can supply the law text behind an explanatory page.
- const extra=[...new Set(pages.flatMap(p=>p.links||[]).filter(l=>/법|규칙|등기|신청|서류/.test(l.title)).map(l=>safeSource(l.url)).filter(Boolean))].filter(u=>!seeds.some(s=>s.url===u)).slice(0,3);
+ const extra=[...new Set(pages.flatMap(p=>p.links||[]).filter(l=>/법|규칙|등기|신청|서류/.test(l.title)).map(l=>safeSource(l.url)).filter(u=>u&&!new URL(u).hash&&(/law\.go\.kr/.test(new URL(u).hostname)&&!u.includes('easylaw')||u.includes('/CSP/CnpClsMain.laf')&&new URL(u).searchParams.get('csmSeq')==='566')))].filter(u=>!seeds.some(s=>s.url===u)).slice(0,3);
  const more=await Promise.allSettled(extra.map(load));pages.push(...more.filter(r=>r.status==='fulfilled').map(r=>r.value));
  const sources=[];
+ if(domain==='인터넷등기소 이용 안내'&&!pages.some(p=>new URL(p.url).hostname==='www.iros.go.kr')){
+  sources.push({title:'인터넷등기소 메뉴 안내 (2026.10.14. 확인)',url:'https://www.iros.go.kr/',sourceType:'사전 확인한 공식 메뉴 안내',checkedAt:null,verifiedAt:'2026-10-14',excerpt:'2026년 10월 14일 공식 홈페이지에서 확인한 메뉴 안내입니다. 현재 실시간 본문 조회에 실패한 경우 참고용이며 변경 여부는 홈페이지에서 확인해야 합니다. 부동산 등기사항증명서는 홈페이지의 주소 입력 검색 또는 열람·발급 > 부동산 > 열람·발급 메뉴에서 시작합니다. 신청결과 확인(미열람·미발급/재열람 등)은 열람·발급 > 부동산에 있고, 열람·발급 내역확인과 증명서 발급확인은 열람·발급 확인 메뉴에 있습니다. 부동산·법인 등기신청은 신청 메뉴에서 시작합니다. 고객센터에는 등기서비스 안내, 자주묻는 질문(인터넷등기소, 열람/발급, 전자신청, 전자표준양식), 지원안내(등기비용 안내, 등기신청양식, 첨부서면예시, 등기용어해설, 등기 관련 법규), 서비스 이용시간 안내, 전국 등기소 안내, 프로그램 설치, 오류시조치방안이 있습니다. 이 메뉴 자료만으로 수수료 금액, 운영시간, 신청 요건, 상세 입력·결제 절차를 확정할 수 없습니다.'});
+ }
+
  for(const p of pages){
   if(!safeSource(p.url)||!p.text)continue;
   // Reject menu-only legal pages: a title is not statutory evidence.
