@@ -8,6 +8,7 @@ on:
       - 'worker.js'
       - 'documents.js'
       - 'guidance.js'
+      - 'iros-chat.js'
       - 'scripts/**'
       - 'package-lock.json'
       - 'statistics.js'

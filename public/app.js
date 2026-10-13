@@ -143,6 +143,11 @@ async function handleQuestion(q) {
       for(const page of pages){const link=document.createElement('a');link.href=pdfUrl+'#page='+page;link.target='_blank';link.rel='noopener';link.className='source-link';link.textContent=`[PDF p.${page}]`;sourceList.appendChild(link);}
       const info=document.createElement('div');info.className='meta';info.textContent='관련 발췌를 기준으로 답변합니다. 페이지는 PDF 순서 기준이며 문서 전체 검토 결과가 아닙니다.';bubble.appendChild(info);
     }
+    if(result.chatStatus){
+      const status=document.createElement('div');status.className='meta';
+      status.textContent=result.chatStatus.matchedCount ? `등기절차 안내봇 질문·답변 ${result.chatStatus.matchedCount}건 참고` : result.chatStatus.status==='ready' ? '등기절차 안내봇에서 일치하는 질문·답변을 찾지 못했습니다.' : '등기절차 안내봇 질문·답변을 확인하지 못해 다른 공식 자료를 참고했습니다.';
+      bubble.appendChild(status);
+    }
     if (sourceList.children.length) bubble.appendChild(sourceList);
   } catch (e) {
     loading.remove();
