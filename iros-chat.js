@@ -1,5 +1,5 @@
 export const CHAT_URL='https://www.iros.go.kr/chat/';
-const CACHE_URL='https://registry-bot.internal/iros-chat-qa-v2';
+const CACHE_URL='https://registry-bot.internal/iros-chat-qa-v3';
 const QUESTION_KEYS=['question','questionText','question_text','qstn','qstnCn','questionCn','query','faqQuestion','utterance'];
 const ANSWER_KEYS=['answer','answerText','answer_text','ans','ansCn','answerCn','response','faqAnswer'];
 const text=value=>typeof value==='string'?value.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/\s+/g,' ').trim():'';
@@ -59,6 +59,7 @@ export async function collectChat(load=readPublic){
   for(let i=0;i<results.length;i++){
    const r=results[i],url=batch[i];if(r.status!=='fulfilled'){errors.push({url,reason:String(r.reason?.message||'unavailable')});continue;}
    if(/\.js(?:\?|$)/.test(url)){
+    const handler=r.value.indexOf('function mr(');if(handler>=0)integrationHints.push({url,snippet:r.value.slice(handler,handler+9000)});
     for(const m of r.value.matchAll(/(?:\.(?:post|get)\(\s*["']|baseURL\s*:|["'][^"'\n]{0,100}(?:faq|qna|chatbot|intent|answer)[^"'\n]{0,100}["'])/gi)){
      const snippet=r.value.slice(Math.max(0,m.index-100),m.index+400);
      if(integrationHints.length<24&&!integrationHints.some(x=>x.snippet===snippet))integrationHints.push({url,snippet});
