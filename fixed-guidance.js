@@ -28,12 +28,37 @@ export const MORTGAGE_GUIDANCE = `근저당권 설정에 대한 안내입니다.
 
 추가 문의는 등기민원콜센터(☎1544-0773)로 연락해주시기 바랍니다.`;
 
-export function fixedGuidance(question){
- const q=question.replace(/\s+/g,'');
- if(!/근저당권?설정/.test(q))return null;
- // Preserve statistics, cancellation, and specific follow-up interpretation.
- if(/말소|해지|통계|현황|건수|몇건|부동산수|신청수|추이|증감|비교|순위|지역별|월별|연도별/.test(q))return null;
- const general=/안내|절차|방법|서류|준비|신청|알려|문의|설명/.test(q)||/^(?:근저당권?설정)(?:등기)?(?:은|는|이란|이뭐야|이무엇인가요)?[?？.!]*$/.test(q);
- if(!general||/제\d+조|근거|계산|얼마|세율|채권최고액|왜|주소|동일인|인감|대체|위임장/.test(q))return null;
- return {answer:MORTGAGE_GUIDANCE,status:'found',queryType:'근저당권 설정 안내',llmUsed:false,model:null,aiStatus:'fixed_guidance',answerMode:'fixed',sources:[],source:'https://www.iros.go.kr/chat/',resolvedQuestion:question};
+export const MORTGAGE_DEFINITION = `근저당권 설정은 대출 등 채무를 담보하기 위해 부동산에 근저당권을 만들고 등기부에 기록하는 것입니다.
+
+근저당권은 담보할 채무의 최고액인 ‘채권최고액’을 먼저 정하고, 최종적으로 담보할 채무의 확정은 나중에 하는 방식입니다. 채무의 이자도 채권최고액에 포함됩니다. [1]
+
+쉽게 말하면, 부동산을 담보로 제공하면서 담보 범위의 상한을 정해 두는 것입니다. 채권최고액과 실제 대출잔액은 같은 의미가 아닙니다.
+
+신청방법과 준비서류가 필요하면 “근저당권 설정 신청방법” 또는 “근저당권 설정 준비서류”라고 질문해 주세요.`;
+const DEFINITION_SOURCE={title:'민법 제357조(근저당) · 시행 2026.3.17.',url:'https://www.law.go.kr/LSW/lsSideInfoP.do?docCls=jo&joBrNo=00&joNo=0357&lsiSeq=284415&urlMode=lsScJoRltInfoR',sourceType:'법령 원문',effectiveDate:'2026.3.17.'};
+export function mortgageIntent(question,history=[]){
+ let q=question.replace(/\s+/g,'');
+ const explicit=/근저당(?:권)?/.test(q);
+ if(!explicit){
+  const prior=history.slice(-2).map(m=>m.content).join(' ');
+  const deictic=/^(?:그게|그건|그것|이게|이건|그럼|그러면)/.test(q);
+  const shortFollowup=/^(?:신청방법|신청절차|준비서류|필요서류|서류)(?:은|는|가|이)?(?:뭐|무엇|알려|설명|안내|[?？])/.test(q);
+  if(!/근저당(?:권)?설정/.test(prior.replace(/\s+/g,''))||(!deictic&&!shortFollowup)||/상속|증여|매매|소유권|전세권|임차권|신탁|법인|전자신청|인터넷등기소/.test(q))return {intent:'other',question};
+  q='근저당권설정 '+q;
+ }
+ if(/말소|해지|통계|현황|건수|몇건|부동산수|신청수|추이|증감|비교|순위|지역별|월별|연도별/.test(q))return {intent:'other',question};
+ if(/제\d+조|근거|계산|얼마|세율|채권최고액|왜|주소|동일인|인감|대체|위임장/.test(q))return {intent:'detail',question};
+ const definition=/뜻|개념|의미|정의|이란/.test(q)||/근저당(?:권)?(?:설정(?:등기)?)?(?:이|가|은|는)?(?:뭐|무엇)/.test(q)||/^(?:근저당권설정 )?(?:그게|그건|그것|이게|이건)(?:은|이)?(?:뭐|무엇)/.test(q);
+ const application=/절차|방법|서류|준비|신청/.test(q);
+ if(definition)return {intent:application?'definition_and_application':'definition',question:explicit?question:'근저당권 설정의 개념은 무엇인가요?'};
+ const general=application||/안내|알려|문의|설명/.test(q)||/^근저당권?설정(?:등기)?[?？.!]*$/.test(q);
+ if(general&&/근저당권?설정/.test(q))return {intent:'application',question:explicit?question:'근저당권 설정 신청 안내'};
+ return {intent:'other',question};
+}
+export function fixedGuidance(question,history=[]){
+ const classified=mortgageIntent(question,history);
+ if(!['definition','application','definition_and_application'].includes(classified.intent))return null;
+ const definition=classified.intent!=='application';
+ const answer=classified.intent==='definition_and_application'?MORTGAGE_DEFINITION+'\n\n'+MORTGAGE_GUIDANCE:definition?MORTGAGE_DEFINITION:MORTGAGE_GUIDANCE;
+ return {answer,status:'found',queryType:definition?'근저당권 설정 개념 안내':'근저당권 설정 안내',intent:classified.intent,llmUsed:false,model:null,aiStatus:'fixed_guidance',answerMode:'fixed',sources:definition?[DEFINITION_SOURCE]:[],source:definition?DEFINITION_SOURCE.url:'https://www.iros.go.kr/chat/',resolvedQuestion:classified.question};
 }

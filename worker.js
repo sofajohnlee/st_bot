@@ -83,6 +83,7 @@ export async function resolveQuestion(question, env, history) {
 export async function answerQuestion(question, env, load=page, history=[]) {
  const originalQuestion=question;
  history=validateHistory(history);
+ const originalIntentAnswer=fixedGuidance(originalQuestion,history);if(originalIntentAnswer)return {...originalIntentAnswer,interpretation:"original_intent"};
  try {question=await resolveQuestion(question,env,history);} catch {return {answer:"이전 대화의 조건을 해석하지 못했습니다. 지역·기간·대상을 포함해 다시 질문해 주세요.",status:"clarification_required",sources:[],llmUsed:false};}
  const fixed=fixedGuidance(question);if(fixed)return fixed;
  const domain=guidanceDomain(question);
