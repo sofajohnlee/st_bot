@@ -1,5 +1,5 @@
 export const CHAT_URL='https://www.iros.go.kr/chat/';
-const CACHE_URL='https://registry-bot.internal/iros-chat-qa-v1';
+const CACHE_URL='https://registry-bot.internal/iros-chat-qa-v2';
 const QUESTION_KEYS=['question','questionText','question_text','qstn','qstnCn','questionCn','query','faqQuestion','utterance'];
 const ANSWER_KEYS=['answer','answerText','answer_text','ans','ansCn','answerCn','response','faqAnswer'];
 const text=value=>typeof value==='string'?value.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/\s+/g,' ').trim():'';
@@ -51,18 +51,24 @@ async function readPublic(url){
  return raw;
 }
 export async function collectChat(load=readPublic){
- const queue=[CHAT_URL],visited=new Set(),items=[],errors=[];
+ const queue=[CHAT_URL],visited=new Set(),items=[],errors=[],integrationHints=[];
  // Root plus at most six referenced assets, two bounded discovery rounds.
  for(let round=0;round<3&&queue.length&&visited.size<7;round++){
   const batch=queue.splice(0,Math.min(3,7-visited.size)).filter(u=>!visited.has(u));batch.forEach(u=>visited.add(u));
   const results=await Promise.allSettled(batch.map(load));
   for(let i=0;i<results.length;i++){
    const r=results[i],url=batch[i];if(r.status!=='fulfilled'){errors.push({url,reason:String(r.reason?.message||'unavailable')});continue;}
+   if(/\.js(?:\?|$)/.test(url)){
+    for(const m of r.value.matchAll(/(?:\.(?:post|get)\(\s*["']|baseURL\s*:|["'][^"'\n]{0,100}(?:faq|qna|chatbot|intent|answer)[^"'\n]{0,100}["'])/gi)){
+     const snippet=r.value.slice(Math.max(0,m.index-100),m.index+400);
+     if(integrationHints.length<24&&!integrationHints.some(x=>x.snippet===snippet))integrationHints.push({url,snippet});
+    }
+   }
    for(const item of extractPairs(r.value))if(!items.some(x=>x.question===item.question&&x.answer===item.answer))items.push({...item,assetUrl:url});
    queue.push(...discoverAssets(r.value,url).filter(u=>!visited.has(u)&&!queue.includes(u)));
   }
  }
- return {status:items.length?'ready':errors.some(e=>e.url===CHAT_URL)?'unavailable':'no_public_qa',items:items.slice(0,2000),checkedAt:new Date().toISOString(),source:CHAT_URL,assets:[...visited],errors};
+ return {status:items.length?'ready':errors.some(e=>e.url===CHAT_URL)?'unavailable':'no_public_qa',items:items.slice(0,2000),checkedAt:new Date().toISOString(),source:CHAT_URL,assets:[...visited],errors,integrationHints};
 }
 export async function chatKnowledge(load=readPublic){
  const cache=globalThis.caches?.default;
@@ -80,4 +86,4 @@ export async function searchChat(q,load=readPublic){
  const data=await chatKnowledge(load),matches=relevantPairs(q,data.items);
  return {sources:matches.map(item=>({title:'인터넷등기소 등기절차 안내봇 · '+item.question,url:CHAT_URL,assetUrl:item.assetUrl,question:item.question,excerpt:'질문: '+item.question+'\n답변: '+item.answer,checkedAt:data.checkedAt,sourceType:'공식 등기절차 안내봇 질문·답변'})),chatStatus:{status:data.status,questionCount:data.items.length,matchedCount:matches.length,checkedAt:data.checkedAt,source:CHAT_URL}};
 }
-export async function chatStatus(){const data=await chatKnowledge();return {status:data.status,questionCount:data.items.length,checkedAt:data.checkedAt,source:CHAT_URL,assets:data.assets,errors:data.errors};}
+export async function chatStatus(){const data=await chatKnowledge();return {status:data.status,questionCount:data.items.length,checkedAt:data.checkedAt,source:CHAT_URL,assets:data.assets,errors:data.errors,integrationHints:data.integrationHints};}
