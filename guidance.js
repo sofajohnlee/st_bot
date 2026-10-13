@@ -42,7 +42,9 @@ function rank(q,guide) {
  return n;
 }
 export function guidanceSeeds(q) {
- const sorted=GUIDES.map(g=>({...g,rank:rank(q,g)})).sort((a,b)=>b.rank-a.rank);
+ const topic=['매매','증여','상속','근저당'].find(t=>q.includes(t));
+ const candidates=GUIDES.filter(g=>!topic||!['매매','증여','상속','근저당'].some(t=>t!==topic&&g.title.includes(t)));
+ const sorted=candidates.map(g=>({...g,rank:rank(q,g)})).sort((a,b)=>b.rank-a.rank);
  const selected=sorted.filter(g=>g.rank>0).slice(0,4);
  if(!selected.length)selected.push(GUIDES[1]);
  return selected;
