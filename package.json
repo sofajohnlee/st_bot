@@ -1,1 +1,13 @@
-{"private":true,"type":"module","scripts":{"test":"node --test","dev":"npx wrangler dev","deploy":"npx wrangler deploy"}}
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "dev": "npm run build && npx wrangler dev",
+    "deploy": "npm run build && npx wrangler deploy",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "pdfjs-dist": "4.10.38"
+  }
+}

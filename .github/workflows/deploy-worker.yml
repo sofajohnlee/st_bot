@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - 'worker.js'
+      - 'documents.js'
+      - 'scripts/**'
+      - 'package-lock.json'
       - 'statistics.js'
       - 'tests/**'
       - 'public/**'
@@ -24,6 +27,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and build PDF reader
+        run: npm ci && npm run build
 
       - name: Validate
         run: npm test
