@@ -38,3 +38,15 @@ test('대화 API는 일반 질문만 조회하고 원문 사용자 정보 없이
  const result=await collectDialogue(async body=>{calls.push(body);return {data:{result:{fulfillment:{response_status:'match',speech:[{text:'등기 안내 답변'}],messages:[]}}}};},async()=> '127.0.0.1');
  assert.equal(result.items.length,4);assert.equal(calls[0].in_str,'자주하는 질문');assert.equal(calls[0].in_type,'query');assert.match(calls[0].session_id,/^session_/);assert.equal(calls[0].parameters.position_status,'N');
 });
+
+const {canonicalQuestion,queryTopic}=await import('../iros-chat.js');
+test('개인정보가 포함된 사용자 문장은 고정된 일반 주제로만 변환',()=>{
+ assert.equal(canonicalQuestion('홍길동 서울 주소의 상속등기 서류'), '상속등기');
+ assert.equal(canonicalQuestion('계좌번호 1234 근저당권 말소'), '근저당권 말소등기');
+ assert.equal(canonicalQuestion('일반적인 날씨'),null);
+});
+test('관련 선택 질문을 따라 실제 답변을 조회하고 횟수를 제한',async()=>{
+ const calls=[];
+ const result=await queryTopic('상속등기',async body=>{calls.push(body.in_str);return {data:{result:{fulfillment:body.in_str==='상속등기'?{response_status:'suggest',speech:[{text:'선택해 주세요'}],messages:[{items:[{button:{label:'상속등기 서류',value:'상속등기 서류',action:'query'}}]}]}:{response_status:'match',speech:[{text:'상속등기 준비서류에 관한 공식 답변'}],messages:[]}}}};},async()=> '127.0.0.1');
+ assert.deepEqual(calls,['상속등기','상속등기 서류']);assert.equal(result.items.length,1);assert.equal(result.items[0].question,'상속등기 서류');
+});
