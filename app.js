@@ -118,7 +118,7 @@ async function handleQuestion(q) {
       conversationHistory.push({role:'user',content:q},{role:'assistant',content:result.answer.slice(0,4000)});
       while(conversationHistory.length>12 || conversationHistory.reduce((sum,m)=>sum+m.content.length,0)>18000)conversationHistory.splice(0,2);
     }
-    const mode = result.queryType === '첨부 PDF 질의' ? (result.llmUsed ? '첨부 PDF · AI 답변' : '첨부 PDF · AI 답변 미사용') : result.queryType === '공식 통계 조회' ? '공식 통계 조회 · 서버 수치 검증' : result.llmUsed ? 'Llama 3.3 70B · AI 답변' : '원문 검색 · AI 답변 미사용';
+    const mode = result.answerMode === 'fixed' ? '등록된 안내문' : result.queryType === '첨부 PDF 질의' ? (result.llmUsed ? '첨부 PDF · AI 답변' : '첨부 PDF · AI 답변 미사용') : result.queryType === '공식 통계 조회' ? '공식 통계 조회 · 서버 수치 검증' : result.llmUsed ? 'Llama 3.3 70B · AI 답변' : '원문 검색 · AI 답변 미사용';
     const meta = (result.queryType && !["첨부 PDF 질의","공식 통계 조회","공식 공개 페이지 검색"].includes(result.queryType) ? result.queryType+" · " : "") + mode + (result.searchedAt ? ` · 조회 시각: ${new Date(result.searchedAt).toLocaleString('ko-KR')}` : '');
     const bubble = addMessage(result.answer, 'bot', meta, (result.sources || []).length ? '' : result.source);
     const sourceList = document.createElement('div');

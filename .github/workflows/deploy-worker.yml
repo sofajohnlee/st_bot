@@ -9,6 +9,7 @@ on:
       - 'documents.js'
       - 'guidance.js'
       - 'iros-chat.js'
+      - 'fixed-guidance.js'
       - 'scripts/**'
       - 'package-lock.json'
       - 'statistics.js'

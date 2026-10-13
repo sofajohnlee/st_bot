@@ -2,6 +2,7 @@ import {validateDocument, documentContext} from './documents.js';
 import { statistics, isStatistics } from './statistics.js';
 import { safeSource, guidanceDomain, searchGuidance } from './guidance.js';
 import {searchChat,chatStatus} from './iros-chat.js';
+import {fixedGuidance} from './fixed-guidance.js';
 const BASE = 'https://data.iros.go.kr';
 const SEEDS = [BASE+'/', BASE+'/iu/no/openNotic.do?ris_menu_seq=0000000034', BASE+'/iu/rr/openMatrm.do?ris_menu_seq=0000000036', BASE+'/cr/rs/openRgsCs.do?ris_menu_seq=0000000022'];
 export function officialUrl(value) { try { const u=new URL(value,BASE); return u.origin===BASE && !/logout|login|download|delete|insert|update/i.test(u.pathname) ? u.href : null; } catch { return null; } }
@@ -83,6 +84,7 @@ export async function answerQuestion(question, env, load=page, history=[]) {
  const originalQuestion=question;
  history=validateHistory(history);
  try {question=await resolveQuestion(question,env,history);} catch {return {answer:"이전 대화의 조건을 해석하지 못했습니다. 지역·기간·대상을 포함해 다시 질문해 주세요.",status:"clarification_required",sources:[],llmUsed:false};}
+ const fixed=fixedGuidance(question);if(fixed)return fixed;
  const domain=guidanceDomain(question);
  const stats=(domain!=="등기 관련 규정 안내"&&isStatistics(question)&&!/(절차|방법|서류|신청인|어떻게|이용|수수료)/.test(question))?await statistics(question):null;
  if(stats)return {...stats,resolvedQuestion:question};
