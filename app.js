@@ -6,12 +6,20 @@ const form = document.getElementById('questionForm');
 // Example: https://your-worker-name.your-subdomain.workers.dev
 const API_BASE = window.REGISTRY_BOT_API_BASE || (location.hostname.endsWith('workers.dev') || location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? location.origin : '');
 let busy = false;
+let conversationHistory = [];
+function resetConversation() {
+ conversationHistory=[];
+ messages.replaceChildren();
+ addMessage("새 대화를 시작합니다. 이전 질문과 답변은 참조하지 않습니다.");
+}
+document.getElementById("newConversation").addEventListener("click",()=>{if(!busy&&!pdfReading)resetConversation();});
 let attachedDocument = null;
 let pdfUrl = null;
 let pdfReading = false;
 const pdfStatus = document.getElementById('pdfStatus');
 const fileInput = document.getElementById('pdfFile');
 function clearPdf() {
+ if(attachedDocument)resetConversation();
  attachedDocument=null;
  if(pdfUrl) URL.revokeObjectURL(pdfUrl);
  pdfUrl=null; fileInput.value='';
@@ -44,6 +52,7 @@ fileInput.addEventListener('change',async()=>{
    pages.push({number,text});page.cleanup();pdfStatus.textContent=`PDF 읽기: ${number} / ${pdf.numPages}쪽`;
   }
   if(!pages.some(p=>p.text))throw new Error('텍스트가 없는 스캔 PDF입니다. OCR 처리 후 첨부해 주세요.');
+  resetConversation();
   attachedDocument={name:file.name.slice(0,200),pages};pdfUrl=URL.createObjectURL(file);
   pdfStatus.textContent=`${file.name} · ${pages.length}쪽 · 문서 질문 가능`;
   document.getElementById('removePdf').hidden=false;
@@ -83,7 +92,7 @@ async function askBackend(q) {
   const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question: q, ...(attachedDocument ? {document:attachedDocument} : {}) }),
+    body: JSON.stringify({ question: q, history: conversationHistory, ...(attachedDocument ? {document:attachedDocument} : {}) }),
     signal: AbortSignal.timeout(90000)
   });
   if (!response.ok) {const result=await response.json().catch(()=>({}));throw new Error(result.error || `HTTP ${response.status}`);}
@@ -104,6 +113,10 @@ async function handleQuestion(q) {
     if (!result) {
       addMessage('검색 서버가 아직 연결되지 않았습니다. 저장소 README의 배포 안내를 따라 Worker를 배포한 후 해당 주소에서 이용해 주세요.', 'bot', '서버 연결 필요', 'https://data.iros.go.kr/');
       return;
+    }
+    if(result.status !== 'unavailable' && result.status !== 'clarification_required' && result.aiStatus !== 'unavailable' && result.aiStatus !== 'not_configured') {
+      conversationHistory.push({role:'user',content:q},{role:'assistant',content:result.answer.slice(0,4000)});
+      while(conversationHistory.length>12 || conversationHistory.reduce((sum,m)=>sum+m.content.length,0)>18000)conversationHistory.splice(0,2);
     }
     const mode = result.queryType === '첨부 PDF 질의' ? (result.llmUsed ? '첨부 PDF · AI 답변' : '첨부 PDF · AI 답변 미사용') : result.queryType === '공식 통계 조회' ? '공식 통계 조회 · 서버 수치 검증' : result.llmUsed ? 'Llama 3.3 70B · AI 답변' : '원문 검색 · AI 답변 미사용';
     const meta = mode + (result.searchedAt ? ` · 조회 시각: ${new Date(result.searchedAt).toLocaleString('ko-KR')}` : '');
@@ -146,3 +159,4 @@ form.addEventListener('submit', e => {
 document.querySelectorAll('.suggestions button').forEach(button => {
   button.addEventListener('click', () => handleQuestion(button.dataset.q));
 });
+
